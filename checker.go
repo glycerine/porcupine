@@ -1,6 +1,7 @@
 package porcupine
 
 import (
+	"fmt"
 	"sort"
 	"sync/atomic"
 	"time"
@@ -13,12 +14,38 @@ const (
 	returnEntry entryKind = true
 )
 
+func (e entryKind) String() string {
+	if e {
+		return "returnEntry"
+	}
+	// Add two space padding to match returnEntry.
+	// Gives more visually aligned output when viewing history.
+	return "  callEntry"
+}
+
 type entry struct {
 	kind     entryKind
 	value    interface{}
 	id       int
 	time     int64
 	clientId int
+}
+
+func (e entry) String() string {
+	return fmt.Sprintf("entry{kind: %v, value: %v,"+
+		" id: %v, time: %v, clientId: %v}",
+		e.kind, e.value, e.id, e.time, e.clientId)
+}
+
+type entrySlice []entry // so we can String it
+
+func (h entrySlice) String() (r string) {
+	r = "entrySlice{\n"
+	for i, e := range h {
+		r += fmt.Sprintf("%02d: %v,\n", i, e)
+	}
+	r += "}"
+	return
 }
 
 type LinearizationInfo struct {
@@ -272,6 +299,7 @@ func checkSingle(model Model, history []entry, computePartial bool, kill *int32)
 					hash := newLinearized.hash()
 					cache[hash] = append(cache[hash], newCacheEntry)
 					calls = append(calls, callsEntry{entry, state})
+					vv("assigning newState: %v -> %v\nhistory='%v'\nstack=%v", state, newState, entrySlice(history), stack()) // why 0->0 on 3rd print?
 					state = newState
 					linearized.set(uint(entry.id))
 					lift(entry)
@@ -437,6 +465,7 @@ func checkEvents(model Model, history []Event, verbose bool, timeout time.Durati
 func checkOperations(model Model, history []Operation, verbose bool, timeout time.Duration) (CheckResult, LinearizationInfo) {
 	model = fillDefault(model)
 	partitions := model.Partition(history)
+	//vv("len partitions = %v", len(partitions)) // 1
 	l := make([][]entry, len(partitions))
 	for i, subhistory := range partitions {
 		l[i] = makeEntries(subhistory)

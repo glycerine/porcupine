@@ -37,6 +37,7 @@ var registerModel = Model{
 
 		switch regInput.op {
 		case REGISTER_PUT:
+			vv("REGISTER_PUT called, input=%#v, stack=\n%v", regInput, stack())
 			legal = true // always ok to execute a put
 			newState = regInput.value
 
