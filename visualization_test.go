@@ -71,11 +71,11 @@ func TestRegisterModelReadme(t *testing.T) {
 
 	events := []Event{
 		// C0: Write(100)
-		{Kind: CallEvent, Value: registerInput{false, 100}, Id: 0, ClientId: 0},
+		{Kind: CallEvent, Value: registerInput{REGISTER_PUT, 100}, Id: 0, ClientId: 0},
 		// C1: Read()
-		{Kind: CallEvent, Value: registerInput{true, 0}, Id: 1, ClientId: 1},
+		{Kind: CallEvent, Value: registerInput{REGISTER_GET, 0}, Id: 1, ClientId: 1},
 		// C2: Read()
-		{Kind: CallEvent, Value: registerInput{true, 0}, Id: 2, ClientId: 2},
+		{Kind: CallEvent, Value: registerInput{REGISTER_GET, 0}, Id: 2, ClientId: 2},
 		// C2: Completed Read -> 0
 		{Kind: ReturnEvent, Value: 0, Id: 2, ClientId: 2},
 		// C1: Completed Read -> 100
@@ -95,13 +95,13 @@ func TestRegisterModelReadme(t *testing.T) {
 
 	events = []Event{
 		// C0: Write(200)
-		{Kind: CallEvent, Value: registerInput{false, 200}, Id: 0, ClientId: 0},
+		{Kind: CallEvent, Value: registerInput{REGISTER_PUT, 200}, Id: 0, ClientId: 0},
 		// C1: Read()
-		{Kind: CallEvent, Value: registerInput{true, 0}, Id: 1, ClientId: 1},
+		{Kind: CallEvent, Value: registerInput{REGISTER_GET, 0}, Id: 1, ClientId: 1},
 		// C1: Completed Read -> 200
 		{Kind: ReturnEvent, Value: 200, Id: 1, ClientId: 1},
 		// C2: Read()
-		{Kind: CallEvent, Value: registerInput{true, 0}, Id: 2, ClientId: 2},
+		{Kind: CallEvent, Value: registerInput{REGISTER_GET, 0}, Id: 2, ClientId: 2},
 		// C2: Completed Read -> 0
 		{Kind: ReturnEvent, Value: 0, Id: 2, ClientId: 2},
 		// C0: Completed Write

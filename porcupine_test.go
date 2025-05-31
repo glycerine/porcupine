@@ -12,33 +12,49 @@ import (
 	"testing"
 )
 
+type registerOp int
+
+const (
+	REGISTER_UNK registerOp = 0
+	REGISTER_PUT registerOp = 1 // was false
+	REGISTER_GET registerOp = 2 // was true
+)
+
 type registerInput struct {
-	op    bool // false = put, true = get
+	op    registerOp
 	value int
 }
 
 // a sequential specification of a register
 var registerModel = Model{
 	Init: func() interface{} {
-		return 0
+		return 0 // initial state of system (initial value in register).
 	},
 	// step function: takes a state, input, and output, and returns whether it
 	// was a legal operation, along with a new state
-	Step: func(state, input, output interface{}) (bool, interface{}) {
+	Step: func(state, input, output interface{}) (legal bool, newState interface{}) {
 		regInput := input.(registerInput)
-		if regInput.op == false {
-			return true, regInput.value // always ok to execute a put
-		} else {
-			readCorrectValue := output == state
-			return readCorrectValue, state // state is unchanged
+
+		switch regInput.op {
+		case REGISTER_PUT:
+			legal = true // always ok to execute a put
+			newState = regInput.value
+
+		case REGISTER_GET:
+			newState = state // state is unchanged by GET
+
+			if output == state {
+				legal = true
+			}
 		}
+		return
 	},
 	DescribeOperation: func(input, output interface{}) string {
 		inp := input.(registerInput)
 		switch inp.op {
-		case true:
+		case REGISTER_GET:
 			return fmt.Sprintf("get() -> '%d'", output.(int))
-		case false:
+		case REGISTER_PUT:
 			return fmt.Sprintf("put('%d')", inp.value)
 		}
 		return "<invalid>" // unreachable
@@ -50,60 +66,138 @@ func TestRegisterModel(t *testing.T) {
 	// section VII
 
 	ops := []Operation{
-		{0, registerInput{false, 100}, 0, 0, 100},
-		{1, registerInput{true, 0}, 25, 100, 75},
-		{2, registerInput{true, 0}, 30, 0, 60},
+		{
+			ClientId: 0, // zero-indexed
+			Input:    registerInput{op: REGISTER_PUT, value: 100},
+			Call:     0,   // invocation timestamp
+			Output:   0,   // hmmm, why not 100? want this to be rejected, right?
+			Return:   101, // response timestamp
+		},
+		{
+			ClientId: 1,
+			Input:    registerInput{op: REGISTER_GET},
+			Call:     25, // invocation timestamp
+			Output:   100,
+			Return:   75, // response timestamp
+		},
+		{
+			ClientId: 2,
+			Input:    registerInput{op: REGISTER_GET},
+			Call:     30, // invocation timestamp
+			Output:   0,
+			Return:   60, // response timestamp
+		},
 	}
-	res := CheckOperations(registerModel, ops)
-	if res != true {
+
+	linz := CheckOperations(registerModel, ops)
+	if linz {
+		t.Fatal("expected operations to not be linearizable")
+	}
+
+	ops = []Operation{
+		{
+			ClientId: 0, // zero-indexed
+			Input:    registerInput{op: REGISTER_PUT, value: 100},
+			Call:     0, // invocation timestamp
+			Output:   100,
+			Return:   101, // response timestamp
+		},
+		{
+			ClientId: 1,
+			Input:    registerInput{op: REGISTER_GET},
+			Call:     25, // invocation timestamp
+			Output:   100,
+			Return:   75, // response timestamp
+		},
+		{
+			ClientId: 2,
+			Input:    registerInput{op: REGISTER_GET},
+			Call:     30, // invocation timestamp
+			Output:   0,
+			Return:   60, // response timestamp
+		},
+	}
+
+	linz = CheckOperations(registerModel, ops)
+	if !linz {
 		t.Fatal("expected operations to be linearizable")
 	}
 
 	// same example as above, but with Event
 	events := []Event{
-		{0, CallEvent, registerInput{false, 100}, 0},
-		{1, CallEvent, registerInput{true, 0}, 1},
-		{2, CallEvent, registerInput{true, 0}, 2},
-		{2, ReturnEvent, 0, 2},
-		{1, ReturnEvent, 100, 1},
-		{0, ReturnEvent, 0, 0},
+		{
+			ClientId: 0,
+			Kind:     CallEvent,
+			Value:    registerInput{REGISTER_PUT, 100},
+			Id:       0,
+		},
+		{
+			ClientId: 1,
+			Kind:     CallEvent,
+			Value:    registerInput{op: REGISTER_GET},
+			Id:       1,
+		},
+		{
+			ClientId: 2,
+			Kind:     CallEvent,
+			Value:    registerInput{op: REGISTER_GET},
+			Id:       2,
+		},
+		{
+			ClientId: 2,
+			Kind:     ReturnEvent,
+			Value:    0,
+			Id:       2,
+		},
+		{
+			ClientId: 1,
+			Kind:     ReturnEvent,
+			Value:    100,
+			Id:       1,
+		},
+		{
+			ClientId: 0,
+			Kind:     ReturnEvent,
+			Value:    0, // why allowed? shouldn't this be 100?
+			Id:       0,
+		},
 	}
-	res = CheckEvents(registerModel, events)
-	if res != true {
+	linz = CheckEvents(registerModel, events)
+	if !linz {
 		t.Fatal("expected operations to be linearizable")
 	}
 
 	ops = []Operation{
-		{0, registerInput{false, 200}, 0, 0, 100},
-		{1, registerInput{true, 0}, 10, 200, 30},
-		{2, registerInput{true, 0}, 40, 0, 90},
+		{0, registerInput{REGISTER_PUT, 200}, 0, 0, 100},
+		{1, registerInput{REGISTER_GET, 0}, 10, 200, 30},
+		{2, registerInput{REGISTER_GET, 0}, 40, 0, 90},
 	}
-	res = CheckOperations(registerModel, ops)
-	if res != false {
+	linz = CheckOperations(registerModel, ops)
+	if linz {
 		t.Fatal("expected operations to not be linearizable")
 	}
 
 	// same example as above, but with Event
 	events = []Event{
-		{0, CallEvent, registerInput{false, 200}, 0},
-		{1, CallEvent, registerInput{true, 0}, 1},
+		{0, CallEvent, registerInput{REGISTER_PUT, 200}, 0},
+		{1, CallEvent, registerInput{REGISTER_GET, 0}, 1},
 		{1, ReturnEvent, 200, 1},
-		{2, CallEvent, registerInput{true, 0}, 2},
+		{2, CallEvent, registerInput{REGISTER_GET, 0}, 2},
 		{2, ReturnEvent, 0, 2},
 		{0, ReturnEvent, 0, 0},
 	}
-	res = CheckEvents(registerModel, events)
-	if res != false {
+	linz = CheckEvents(registerModel, events)
+	if linz {
 		t.Fatal("expected operations to not be linearizable")
 	}
 }
 
 func TestZeroDuration(t *testing.T) {
 	ops := []Operation{
-		{0, registerInput{false, 100}, 0, 0, 100},
-		{1, registerInput{true, 0}, 25, 100, 75},
-		{2, registerInput{true, 0}, 30, 0, 30},
-		{3, registerInput{true, 0}, 30, 0, 30},
+		{0, registerInput{REGISTER_PUT, 100}, 0, 0, 100},
+		{1, registerInput{REGISTER_GET, 0}, 25, 100, 75},
+		{2, registerInput{REGISTER_GET, 0}, 30, 0, 30},
+		{3, registerInput{REGISTER_GET, 0}, 30, 0, 30},
 	}
 	res, info := CheckOperationsVerbose(registerModel, ops, 0)
 	if res != Ok {
@@ -113,10 +207,10 @@ func TestZeroDuration(t *testing.T) {
 	visualizeTempFile(t, registerModel, info)
 
 	ops = []Operation{
-		{0, registerInput{false, 200}, 0, 0, 100},
-		{1, registerInput{true, 0}, 10, 200, 10},
-		{2, registerInput{true, 0}, 10, 200, 10},
-		{3, registerInput{true, 0}, 40, 0, 90},
+		{0, registerInput{REGISTER_PUT, 200}, 0, 0, 100},
+		{1, registerInput{REGISTER_GET, 0}, 10, 200, 10},
+		{2, registerInput{REGISTER_GET, 0}, 10, 200, 10},
+		{3, registerInput{REGISTER_GET, 0}, 40, 0, 90},
 	}
 	res, _ = CheckOperationsVerbose(registerModel, ops, 0)
 	if res != Illegal {
