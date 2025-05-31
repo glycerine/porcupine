@@ -18,9 +18,9 @@ import (
 type Operation struct {
 	ClientId int // optional, unless you want a visualization; zero-indexed
 	Input    interface{}
-	Call     int64 // invocation timestamp
+	CallTS   int64 // invocation timestamp
 	Output   interface{}
-	Return   int64 // response timestamp
+	ReturnTS int64 // response timestamp
 }
 
 // Interpreting the interval [Call, Return] as a closed interval is the only

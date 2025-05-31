@@ -46,6 +46,8 @@ var registerModel = Model{
 			if output == state {
 				legal = true
 			}
+		default:
+			panic(fmt.Sprintf("unsupported register operation: %v", int(regInput.op)))
 		}
 		return
 	},
@@ -56,6 +58,8 @@ var registerModel = Model{
 			return fmt.Sprintf("get() -> '%d'", output.(int))
 		case REGISTER_PUT:
 			return fmt.Sprintf("put('%d')", inp.value)
+		case REGISTER_UNK:
+			return "REGISTER_UNK: unknown register operation"
 		}
 		return "<invalid>" // unreachable
 	},
@@ -69,23 +73,28 @@ func TestRegisterModel(t *testing.T) {
 		{
 			ClientId: 0, // zero-indexed
 			Input:    registerInput{op: REGISTER_PUT, value: 100},
-			Call:     0,   // invocation timestamp
-			Output:   0,   // hmmm, why not 100? want this to be rejected, right?
-			Return:   101, // response timestamp
+			CallTS:   0, // invocation timestamp
+
+			// hmmm, why not Output: 100? don't we want
+			// this to be rejected
+			// since PUT is defined to return the
+			// new value as the new state?
+			Output:   0,
+			ReturnTS: 101, // response timestamp, avoid confusion w output value
 		},
 		{
 			ClientId: 1,
 			Input:    registerInput{op: REGISTER_GET},
-			Call:     25, // invocation timestamp
+			CallTS:   25, // invocation timestamp
 			Output:   100,
-			Return:   75, // response timestamp
+			ReturnTS: 75, // response timestamp
 		},
 		{
 			ClientId: 2,
 			Input:    registerInput{op: REGISTER_GET},
-			Call:     30, // invocation timestamp
+			CallTS:   30, // invocation timestamp
 			Output:   0,
-			Return:   60, // response timestamp
+			ReturnTS: 60, // response timestamp
 		},
 	}
 
@@ -98,23 +107,23 @@ func TestRegisterModel(t *testing.T) {
 		{
 			ClientId: 0, // zero-indexed
 			Input:    registerInput{op: REGISTER_PUT, value: 100},
-			Call:     0, // invocation timestamp
+			CallTS:   0, // invocation timestamp
 			Output:   100,
-			Return:   101, // response timestamp
+			ReturnTS: 101, // response timestamp
 		},
 		{
 			ClientId: 1,
 			Input:    registerInput{op: REGISTER_GET},
-			Call:     25, // invocation timestamp
+			CallTS:   25, // invocation timestamp
 			Output:   100,
-			Return:   75, // response timestamp
+			ReturnTS: 75, // response timestamp
 		},
 		{
 			ClientId: 2,
 			Input:    registerInput{op: REGISTER_GET},
-			Call:     30, // invocation timestamp
+			CallTS:   30, // invocation timestamp
 			Output:   0,
-			Return:   60, // response timestamp
+			ReturnTS: 60, // response timestamp
 		},
 	}
 

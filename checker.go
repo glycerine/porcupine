@@ -71,9 +71,9 @@ func (li *LinearizationInfo) PartialLinearizationsOperations() [][][]Operation {
 			opMap[id] = Operation{
 				ClientId: call.clientId,
 				Input:    call.value,
-				Call:     call.time,
+				CallTS:   call.time,
 				Output:   ret.value,
-				Return:   ret.time,
+				ReturnTS: ret.time,
 			}
 		}
 
@@ -121,9 +121,9 @@ func makeEntries(history []Operation) []entry {
 	id := 0
 	for _, elem := range history {
 		entries = append(entries, entry{
-			callEntry, elem.Input, id, elem.Call, elem.ClientId})
+			callEntry, elem.Input, id, elem.CallTS, elem.ClientId})
 		entries = append(entries, entry{
-			returnEntry, elem.Output, id, elem.Return, elem.ClientId})
+			returnEntry, elem.Output, id, elem.ReturnTS, elem.ClientId})
 		id++
 	}
 	sort.Sort(byTime(entries))
