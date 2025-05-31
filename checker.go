@@ -275,6 +275,7 @@ func unlift(entry *node) {
 }
 
 func checkSingle(model Model, history []entry, computePartial bool, kill *int32) (bool, []*[]int) {
+	vv("checkSingle top, history = '%v'", entrySlice(history))
 	entry := makeLinkedEntries(history)
 	n := length(entry) / 2
 	linearized := newBitset(uint(n))
@@ -305,6 +306,7 @@ func checkSingle(model Model, history []entry, computePartial bool, kill *int32)
 					lift(entry)
 					entry = headEntry.next
 				} else {
+					vv("cacheContains true for newCacheEntry '%#v'", newCacheEntry)
 					entry = entry.next
 				}
 			} else {
