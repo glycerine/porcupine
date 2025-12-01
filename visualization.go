@@ -16,6 +16,7 @@ type historyElement struct {
 	End           int
 	OriginalEnd   string
 	Description   string
+	Metadata      string
 }
 
 type annotation struct {
@@ -145,6 +146,7 @@ func computeVisualizationData(model Model, info LinearizationInfo) visualization
 		history := make([]historyElement, n)
 		callValue := make(map[int]interface{})
 		returnValue := make(map[int]interface{})
+		callMetadata := make(map[int]interface{})
 		for _, elem := range info.history[partition] {
 			switch elem.kind {
 			case callEntry:
@@ -152,11 +154,18 @@ func computeVisualizationData(model Model, info LinearizationInfo) visualization
 				history[elem.id].Start = timeMap[elem.time]
 				history[elem.id].OriginalStart = fmt.Sprintf("%d", elem.time)
 				callValue[elem.id] = elem.value
+				callMetadata[elem.id] = elem.metadata
 			case returnEntry:
 				history[elem.id].End = timeMap[elem.time]
 				history[elem.id].OriginalEnd = fmt.Sprintf("%d", elem.time)
 				history[elem.id].Description = model.DescribeOperation(callValue[elem.id], elem.value)
 				returnValue[elem.id] = elem.value
+				// prefer return metadata over call metadata
+				metadata := callMetadata[elem.id]
+				if elem.metadata != nil {
+					metadata = elem.metadata
+				}
+				history[elem.id].Metadata = model.DescribeOperationMetadata(metadata)
 			}
 			// historyElement.Annotation defaults to false, so we
 			// don't need to explicitly set it here; all of these

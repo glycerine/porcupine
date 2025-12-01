@@ -1,6 +1,7 @@
 package porcupine
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -290,5 +291,180 @@ func TestVisualizationCallAndReturnTime(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestVisualizationStringMetadata(t *testing.T) {
+	model := kvModel
+	model.DescribeOperationMetadata = func(info interface{}) string {
+		return fmt.Sprintf("custom: %v", info)
+	}
+
+	ops := []Operation{
+		{ClientId: 0, Input: kvInput{op: 0, key: "x"}, Call: 0, Output: kvOutput{"w"}, Return: 100, Metadata: "meta1"},
+	}
+	_, info := CheckOperationsVerbose(model, ops, 0)
+
+	file, err := os.CreateTemp("", "porcupine_test_custom_metadata_*.html")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(file.Name())
+	defer file.Close()
+
+	if err := Visualize(model, info, file); err != nil {
+		t.Fatalf("Visualize failed: %v", err)
+	}
+
+	content, err := os.ReadFile(file.Name())
+	if err != nil {
+		t.Fatalf("failed to read generated HTML: %v", err)
+	}
+
+	if !strings.Contains(string(content), "custom: meta1") {
+		t.Errorf("expected HTML to contain custom metadata 'custom: meta1'")
+	}
+}
+
+type customMetadata struct {
+	ID   int
+	Info string
+}
+
+func TestVisualizationStructMetadata(t *testing.T) {
+	ops := []Operation{
+		{ClientId: 0, Input: kvInput{op: 0, key: "x"}, Call: 0, Output: kvOutput{"w"}, Return: 100, Metadata: customMetadata{1, "meta1"}},
+		{ClientId: 1, Input: kvInput{op: 1, key: "x", value: "y"}, Call: 5, Output: kvOutput{}, Return: 10, Metadata: customMetadata{2, "meta2"}},
+	}
+
+	// Define a model that handles custom metadata
+	model := kvModel
+	model.DescribeOperationMetadata = func(info interface{}) string {
+		if m, ok := info.(customMetadata); ok {
+			return fmt.Sprintf("ID:%d, Info:%s", m.ID, m.Info)
+		}
+		return fmt.Sprintf("%v", info)
+	}
+
+	_, info := CheckOperationsVerbose(model, ops, 0)
+
+	file, err := os.CreateTemp("", "porcupine_test_custom_metadata_*.html")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(file.Name())
+	defer file.Close()
+
+	if err := Visualize(model, info, file); err != nil {
+		t.Fatalf("Visualize failed: %v", err)
+	}
+
+	content, err := os.ReadFile(file.Name())
+	if err != nil {
+		t.Fatalf("failed to read generated HTML: %v", err)
+	}
+
+	s := string(content)
+	if !strings.Contains(s, "ID:1, Info:meta1") {
+		t.Errorf("expected HTML to contain ID:1, Info:meta1")
+	}
+	if !strings.Contains(s, "ID:2, Info:meta2") {
+		t.Errorf("expected HTML to contain ID:2, Info:meta2")
+	}
+}
+
+func TestVisualizationMetadataAlwaysVisible(t *testing.T) {
+	ops := []Operation{
+		{ClientId: 0, Input: kvInput{op: 1, key: "x", value: "val"}, Call: 0, Output: kvOutput{}, Return: 100, Metadata: "meta_linearizable"},
+		{ClientId: 1, Input: kvInput{op: 0, key: "x"}, Call: 5, Output: kvOutput{"invalid"}, Return: 10, Metadata: "meta_not_linearizable"},
+	}
+
+	_, info := CheckOperationsVerbose(kvModel, ops, 0)
+
+	file, err := os.CreateTemp("", "porcupine_test_metadata_visible_*.html")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(file.Name())
+	defer file.Close()
+
+	if err := Visualize(kvModel, info, file); err != nil {
+		t.Fatalf("Visualize failed: %v", err)
+	}
+
+	content, err := os.ReadFile(file.Name())
+	if err != nil {
+		t.Fatalf("failed to read generated HTML: %v", err)
+	}
+
+	s := string(content)
+	if !strings.Contains(s, "meta_linearizable") {
+		t.Errorf("expected HTML to contain meta_linearizable")
+	}
+	if !strings.Contains(s, "meta_not_linearizable") {
+		t.Errorf("expected HTML to contain meta_not_linearizable")
+	}
+}
+
+func TestVisualizationEventMetadata(t *testing.T) {
+	model := registerModel
+	model.DescribeOperationMetadata = func(info interface{}) string {
+		if info == nil {
+			return ""
+		}
+		return fmt.Sprintf("event-meta: %v", info)
+	}
+
+	events := []Event{
+		// C0: Write(100) with metadata on both CallEvent and ReturnEvent (Return should take precedence)
+		{Kind: CallEvent, Value: registerInput{false, 100}, Id: 0, ClientId: 0, Metadata: "write-call-meta-IGNORED"},
+		// C1: Read() with metadata only on CallEvent
+		{Kind: CallEvent, Value: registerInput{true, 0}, Id: 1, ClientId: 1, Metadata: "read-call-meta"},
+		// C2: Read() with metadata only on ReturnEvent
+		{Kind: CallEvent, Value: registerInput{true, 0}, Id: 2, ClientId: 2},
+		// C1: Completed Read -> 100 (no metadata on return, should use call metadata)
+		{Kind: ReturnEvent, Value: 100, Id: 1, ClientId: 1},
+		// C2: Completed Read -> 100 (metadata on ReturnEvent only)
+		{Kind: ReturnEvent, Value: 100, Id: 2, ClientId: 2, Metadata: "read-return-meta"},
+		// C0: Completed Write (metadata on ReturnEvent should take precedence over CallEvent)
+		{Kind: ReturnEvent, Value: 0, Id: 0, ClientId: 0, Metadata: "write-return-meta"},
+	}
+
+	res, info := CheckEventsVerbose(model, events, 0)
+	if res != Ok {
+		t.Fatal("expected operations to be linearizable")
+	}
+
+	file, err := os.CreateTemp("", "porcupine_test_event_metadata_*.html")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(file.Name())
+	defer file.Close()
+
+	if err := Visualize(model, info, file); err != nil {
+		t.Fatalf("Visualize failed: %v", err)
+	}
+
+	content, err := os.ReadFile(file.Name())
+	if err != nil {
+		t.Fatalf("failed to read generated HTML: %v", err)
+	}
+
+	s := string(content)
+	// C0: Return metadata should take precedence over Call metadata
+	if !strings.Contains(s, "event-meta: write-return-meta") {
+		t.Errorf("expected HTML to contain 'event-meta: write-return-meta'")
+	}
+	if strings.Contains(s, "write-call-meta-IGNORED") {
+		t.Errorf("expected HTML to NOT contain Call metadata when Return metadata is present")
+	}
+	// C1: CallEvent metadata should be used when no Return metadata
+	if !strings.Contains(s, "event-meta: read-call-meta") {
+		t.Errorf("expected HTML to contain 'event-meta: read-call-meta'")
+	}
+	// C2: ReturnEvent metadata should be used when no Call metadata
+	if !strings.Contains(s, "event-meta: read-return-meta") {
+		t.Errorf("expected HTML to contain 'event-meta: read-return-meta'")
 	}
 }
