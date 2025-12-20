@@ -232,10 +232,15 @@ from servers or the test framework. You can do this using the
 
 ## Notes
 
-If Porcupine runs really slowly on your model/history, it may be inevitable,
-due to state space explosion. See [this
-issue](https://github.com/anishathalye/porcupine/issues/6) for a discussion of
-this challenge in the context of a particular model and history.
+- If Porcupine runs really slowly on your model/history, it may be inevitable,
+  due to state space explosion. See [this
+  issue](https://github.com/anishathalye/porcupine/issues/6) for a discussion
+  of this challenge in the context of a particular model and history.
+- When recording timestamps for operations, especially on ARM and other
+  weakly-ordered architectures, you may need to use memory barriers or atomic
+  operations to ensure accurate measurements and avoid spurious linearizability
+  violations. See [this
+  issue](https://github.com/anishathalye/porcupine/issues/40) for details.
 
 ## Users
 
