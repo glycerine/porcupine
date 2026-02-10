@@ -1703,3 +1703,43 @@ func TestCheckNoPartitions(t *testing.T) {
 		t.Fatalf("expected output %v, got output %v", Ok, res)
 	}
 }
+
+func TestRegisterModelMetadata(t *testing.T) {
+	// similar to TestRegisterModel but with metadata
+	ops := []Operation{
+		{ClientId: 0, Input: registerInput{false, 100}, Call: 0, Output: 0, Return: 100, Metadata: "meta1"},
+		{ClientId: 1, Input: registerInput{true, 0}, Call: 25, Output: 100, Return: 75, Metadata: "meta2"},
+		{ClientId: 2, Input: registerInput{true, 0}, Call: 30, Output: 0, Return: 60, Metadata: "meta3"},
+	}
+	res, info := CheckOperationsVerbose(registerModel, ops, 0)
+	if res != Ok {
+		t.Fatal("expected operations to be linearizable")
+	}
+
+	// Verify metadata propagation to internal history
+	// We expect 3 operations * 2 entries (call+return) = 6 entries
+	if len(info.history) != 1 {
+		t.Fatalf("expected 1 partition, got %d", len(info.history))
+	}
+	entries := info.history[0]
+	if len(entries) != 6 {
+		t.Fatalf("expected 6 entries, got %d", len(entries))
+	}
+
+	// We can map IDs to metadata to verify.
+	expectedMeta := map[int]string{
+		0: "meta1",
+		1: "meta2",
+		2: "meta3",
+	}
+
+	for _, e := range entries {
+		if e.metadata == nil {
+			t.Errorf("entry %d (id %d) metadata is empty", e.time, e.id)
+			continue
+		}
+		if expectedMeta[e.id] != e.metadata {
+			t.Errorf("entry %d (id %d) expected metadata %s, got %s", e.time, e.id, expectedMeta[e.id], e.metadata)
+		}
+	}
+}

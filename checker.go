@@ -19,6 +19,7 @@ type entry struct {
 	id       int
 	time     int64
 	clientId int
+	metadata interface{}
 }
 
 type LinearizationInfo struct {
@@ -68,12 +69,18 @@ func (li *LinearizationInfo) PartialLinearizationsOperations() [][][]Operation {
 				// where there is a return for every call
 				panic("cannot find corresponding return for call")
 			}
+			// prefer return metadata over call metadata
+			metadata := call.metadata
+			if ret.metadata != nil {
+				metadata = ret.metadata
+			}
 			opMap[id] = Operation{
 				ClientId: call.clientId,
 				Input:    call.value,
 				Call:     call.time,
 				Output:   ret.value,
 				Return:   ret.time,
+				Metadata: metadata,
 			}
 		}
 
@@ -121,9 +128,9 @@ func makeEntries(history []Operation) []entry {
 	id := 0
 	for _, elem := range history {
 		entries = append(entries, entry{
-			callEntry, elem.Input, id, elem.Call, elem.ClientId})
+			callEntry, elem.Input, id, elem.Call, elem.ClientId, elem.Metadata})
 		entries = append(entries, entry{
-			returnEntry, elem.Output, id, elem.Return, elem.ClientId})
+			returnEntry, elem.Output, id, elem.Return, elem.ClientId, elem.Metadata})
 		id++
 	}
 	sort.Sort(byTime(entries))
@@ -166,9 +173,9 @@ func renumber(events []Event) []Event {
 	id := 0
 	for _, v := range events {
 		if r, ok := m[v.Id]; ok {
-			e = append(e, Event{ClientId: v.ClientId, Kind: v.Kind, Value: v.Value, Id: r})
+			e = append(e, Event{ClientId: v.ClientId, Kind: v.Kind, Value: v.Value, Id: r, Metadata: v.Metadata})
 		} else {
-			e = append(e, Event{ClientId: v.ClientId, Kind: v.Kind, Value: v.Value, Id: id})
+			e = append(e, Event{ClientId: v.ClientId, Kind: v.Kind, Value: v.Value, Id: id, Metadata: v.Metadata})
 			m[v.Id] = id
 			id++
 		}
@@ -184,7 +191,7 @@ func convertEntries(events []Event) []entry {
 			kind = returnEntry
 		}
 		// use index as "time"
-		entries = append(entries, entry{kind, elem.Value, elem.Id, int64(i), elem.ClientId})
+		entries = append(entries, entry{kind, elem.Value, elem.Id, int64(i), elem.ClientId, elem.Metadata})
 	}
 	return entries
 }
@@ -338,6 +345,9 @@ func fillDefault(model Model) Model {
 	}
 	if model.DescribeState == nil {
 		model.DescribeState = defaultDescribeState
+	}
+	if model.DescribeOperationMetadata == nil {
+		model.DescribeOperationMetadata = defaultDescribeOperationMetadata
 	}
 	return model
 }
