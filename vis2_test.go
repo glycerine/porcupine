@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	porc "github.com/anishathalye/porcupine"
+	porc "github.com/glycerine/porcupine"
 )
 
 // The test data was moved to end of this file
