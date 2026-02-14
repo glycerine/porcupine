@@ -142,7 +142,7 @@ func computeVisualizationData(model Model, info LinearizationInfo) visualization
 	partitions := make([]partitionVisualizationData, len(info.history))
 	for partition := 0; partition < len(info.history); partition++ {
 		// history
-		n := len(info.history[partition]) / 2
+		n := len(info.history[partition]) // hack, was: / 2
 		history := make([]historyElement, n)
 		callValue := make(map[int]interface{})
 		returnValue := make(map[int]interface{})

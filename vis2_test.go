@@ -13,9 +13,10 @@ import (
 // var GlobalEvents = []porc.Event{
 
 func TestVis2(t *testing.T) {
-	linz := porc.CheckEvents(stringCasModel, GlobalEvents)
+	e := GlobalEvents // [:1000]
+	linz := porc.CheckEvents(stringCasModel, e)
 	if !linz {
-		writeToDiskNonLinzFuzzEvents(t, GlobalEvents)
+		writeToDiskNonLinzFuzzEvents(t, e)
 	}
 }
 
@@ -164,9 +165,13 @@ var stringCasModel = porc.Model{
 		}
 		return
 	},
-	DescribeOperation: func(input, output interface{}) string {
+	DescribeOperation: func(input, output interface{}) (desc string) {
 		inp := input.(casInput)
 		out := output.(casOutput)
+
+		//defer func() {
+		//	fmt.Printf("returning desc: '%v'\n", desc)
+		//}()
 
 		switch inp.op {
 		case STRING_REGISTER_GET:
