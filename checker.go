@@ -440,12 +440,36 @@ loop:
 	return result, info
 }
 
+func filterUnmatchedEvents(events []Event) []Event {
+	// filter out unmatched calls
+	var filtered []Event
+	seenReturns := make(map[int]int)
+	for i := len(events) - 1; i >= 0; i-- {
+		ev := events[i]
+		if ev.Kind == ReturnEvent {
+			seenReturns[ev.Id]++
+			filtered = append(filtered, ev)
+		} else {
+			if seenReturns[ev.Id] > 0 {
+				seenReturns[ev.Id]--
+				filtered = append(filtered, ev)
+			}
+		}
+	}
+	// reverse
+	for i := 0; i < len(filtered)/2; i++ {
+		j := len(filtered) - 1 - i
+		filtered[i], filtered[j] = filtered[j], filtered[i]
+	}
+	return filtered
+}
+
 func checkEvents(model Model, history []Event, verbose bool, timeout time.Duration) (CheckResult, LinearizationInfo) {
 	model = fillDefault(model)
 	partitions := model.PartitionEvent(history)
 	l := make([][]entry, len(partitions))
 	for i, subhistory := range partitions {
-		l[i] = convertEntries(renumber(subhistory))
+		l[i] = convertEntries(renumber(filterUnmatchedEvents(subhistory)))
 	}
 	return checkParallel(model, l, verbose, timeout)
 }
