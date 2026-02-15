@@ -75,6 +75,16 @@ type Event struct {
 	_        struct{} // disallow positional literals, for extensibility
 }
 
+func (e *Event) String() string {
+	return fmt.Sprintf(`Event{
+    ClientId: %v,
+        Kind: %v,
+       Value: %v,
+(evendID) Id: %v,
+}`,
+		e.ClientId, e.Kind, e.Value, e.Id)
+}
+
 // A Model is a sequential specification of a system.
 //
 // Note: models in this package are expected to be purely functional. That is,
