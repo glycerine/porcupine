@@ -58,7 +58,31 @@ function arrayEq(a, b) {
   return true
 }
 
+function nanosToRFC3339(nanosInput) {
+  const nanos = BigInt(nanosInput); // Accept string or BigInt
+  const NANOS_PER_SEC = 1_000_000_000n;
+
+  const wholeSeconds = nanos / NANOS_PER_SEC;
+  const remainderNs  = nanos % NANOS_PER_SEC;
+
+  // Build the date using whole seconds (safe to cast to Number here,
+  // as Unix seconds won't overflow a float64 for centuries)
+  const date = new Date(Number(wholeSeconds) * 1000);
+
+  // toISOString() gives us "YYYY-MM-DDTHH:mm:ss.mmmZ" — strip the fractional part
+  const base = date.toISOString().replace(/\.\d{3}Z$/, '');
+
+  // Pad nanosecond remainder to 9 digits
+  const fracStr = remainderNs.toString().padStart(9, '0');
+
+  return `${base}.${fracStr}Z`;
+}
+
 function formatCallReturn(callTime, returnTime) {
+  return '<br><br>Call: ' + nanosToRFC3339(callTime) + '<br> (' + callTime + ') <br><br>Return: ' + nanosToRFC3339(returnTime) + '<br> (' + returnTime + ')'
+}
+
+function formatCallReturn_orig(callTime, returnTime) {
   return '<br><br>Call: ' + callTime + '<br><br>Return: ' + returnTime
 }
 
