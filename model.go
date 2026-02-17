@@ -72,6 +72,7 @@ type Event struct {
 	// It is not used for linearizability checking but can be used for visualization.
 	// Can be set on CallEvent or ReturnEvent. If both have metadata, ReturnEvent metadata takes precedence.
 	Metadata interface{}
+	Ts       int64    // timestamp
 	_        struct{} // disallow positional literals, for extensibility
 }
 
