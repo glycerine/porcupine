@@ -81,7 +81,7 @@ func (e *Event) String() string {
     ClientId: %v,
         Kind: %v,
        Value: %v,
-(evendID) Id: %v,
+(eventID) Id: %v,
 }`,
 		e.ClientId, e.Kind, e.Value, e.Id)
 }

@@ -727,9 +727,12 @@ function render(data) {
 
       let metadata = ''
       if (partition < coreHistory.length) {
+        // Add the Description to the top of the tooltip
+        metadata += '<strong>' + allData[partition].History[index].Description + '</strong><br><br>'
+
         const m = allData[partition].History[index].Metadata
         if (m !== '') {
-          metadata = m + '<br><br>'
+          metadata += m + '<br><br>'
         }
       }
 
